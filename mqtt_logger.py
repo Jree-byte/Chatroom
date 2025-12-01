@@ -17,7 +17,7 @@ MQTT_TOPIC = "chat/messages"
 DB_CONFIG = {
     "host": "localhost",
     "user": "mqtt_user",
-    "password": "Salasana123-", # Vaihda!
+    "password": "Salasana123", # Vaihda!
     "database": "mqtt_chat"
 }
 
