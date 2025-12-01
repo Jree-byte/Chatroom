@@ -8,44 +8,12 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
-
-/* --- Chat container --- */
-.chat-container {
-    width: 100%;
-    max-width: 600px;
-    height: 600px; /* Vakio korkeus koko chat-ikkunalle */
-    background: #1f2937;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.chat-header {
-    background: linear-gradient(135deg, #4ade80 0%, #22d3ee 100%);
-    color: white;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
+.chat-container { width: 100%; max-width: 600px; height: 80vh; background: #1f2937; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
+.chat-header { background: linear-gradient(135deg, #4ade80 0%, #22d3ee 100%); color: white; padding: 20px; display: flex; align-items: center; gap: 12px; }
 .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #f87171; transition: background 0.3s; }
 .status-dot.connected { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
 .chat-header h1 { font-size: 1.5rem; font-weight: 700; }
-
-/* --- Messages --- */
-.messages {
-    flex: 1;            /* Vie jäljelle jäävän tilan */
-    overflow-y: auto;   /* Scrollaus vain tässä divissä */
-    padding: 20px;
-    background: #111827;
-    color: #f9fafb;
-}
-.messages::-webkit-scrollbar { width: 8px; }
-.messages::-webkit-scrollbar-thumb { background-color: #4ade80; border-radius: 4px; }
-.messages::-webkit-scrollbar-track { background: #1f2937; }
-
+.messages { flex: 1; overflow-y: auto; padding: 20px; background: #111827; color: #f9fafb; }
 .message { margin-bottom: 12px; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 .message.own { text-align: right; }
@@ -53,8 +21,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .message.own .message-bubble { background: #4ade80; color: #111827; }
 .message-meta { font-size: 0.75rem; color: #9ca3af; margin-top: 4px; }
 .message.own .message-meta { color: #d1d5db; }
-
-/* --- Input area --- */
 .input-area { display: flex; padding: 20px; gap: 12px; background: #111827; border-top: 1px solid #374151; }
 .nickname-input, .message-input { padding: 12px; border: 2px solid #374151; border-radius: 12px; font-size: 0.9rem; transition: border-color 0.3s; color: #f9fafb; background: #1f2937; }
 .nickname-input:focus, .message-input:focus { outline: none; border-color: #4ade80; }
@@ -66,20 +32,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </head>
 <body>
 <div class="chat-container">
-    <div class="chat-header">
-        <div class="status-dot" id="statusDot"></div>
-        <h1>CHAT HUONE</h1>
-    </div>
-    <div class="messages" id="messages">
-        <div class="system-message">Yhdistetään palvelimeen...</div>
-    </div>
-    <div class="input-area">
-        <input type="text" class="nickname-input" id="nickname" placeholder="Nimimerkki" maxlength="20">
-        <input type="text" class="message-input" id="messageInput" placeholder="Kirjoita viesti..." disabled>
-        <button class="send-btn" id="sendBtn" disabled>Lähetä</button>
-    </div>
+<div class="chat-header">
+<div class="status-dot" id="statusDot"></div>
+<h1>CHAT HUONE</h1>
 </div>
-
+<div class="messages" id="messages">
+<div class="system-message">Yhdistetään palvelimeen...</div>
+</div>
+<div class="input-area">
+<input type="text" class="nickname-input" id="nickname" placeholder="Nimimerkki" maxlength="20">
+<input type="text" class="message-input" id="messageInput" placeholder="Kirjoita viesti..." disabled>
+<button class="send-btn" id="sendBtn" disabled>Lähetä</button>
+</div>
+</div>
 <script>
 const TOPIC = 'chat/messages';
 const MAX_MESSAGES = 50;
@@ -93,24 +58,15 @@ const sendBtn = document.getElementById('sendBtn');
 const statusDot = document.getElementById('statusDot');
 
 nicknameInput.value = localStorage.getItem('mqtt_nickname') || '';
-nicknameInput.addEventListener('change', () => {
-    localStorage.setItem('mqtt_nickname', nicknameInput.value);
-});
+nicknameInput.addEventListener('change', () => { localStorage.setItem('mqtt_nickname', nicknameInput.value); });
 
-// --- Hae vanhat viestit REST API:sta ---
-async function fetchOldMessages() {
-    try {
-        const response = await fetch('/api/messages?limit=50');
-        const messages = await response.json();
-        messages.forEach(msg => addMessage(msg.nickname, msg.message, false));
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // scrollaa viimeiseen viestiin
-    } catch (e) {
-        console.error('Vanhojen viestien haku epäonnistui:', e);
-    }
-}
-window.addEventListener('load', fetchOldMessages);
+// Hae vanhat viestit REST API:sta
+fetch(`/api/messages?limit=${MAX_MESSAGES}`)
+  .then(res => res.json())
+  .then(messages => {
+      messages.forEach(msg => addMessage(msg.nickname, msg.message, msg.created_at, false));
+  });
 
-// MQTT WebSocket
 client.on('connect', () => {
     console.log('Yhdistetty MQTT brokeriin');
     statusDot.classList.add('connected');
@@ -127,31 +83,31 @@ client.on('disconnect', () => {
     addSystemMessage('Yhteys katkesi...');
 });
 
-client.on('error', err => {
-    console.error('MQTT virhe:', err);
-    addSystemMessage('Yhteysvirhe: ' + err.message);
-});
+client.on('error', err => { console.error('MQTT virhe:', err); addSystemMessage('Yhteysvirhe: ' + err.message); });
 
 client.on('message', (topic, message) => {
     try {
         const data = JSON.parse(message.toString());
-        addMessage(data.nickname, data.text, data.clientId === client.options.clientId);
+        addMessage(data.nickname, data.text, data.timestamp || Date.now(), data.clientId === client.options.clientId);
     } catch (e) {
-        addMessage('Tuntematon', message.toString(), false);
+        addMessage('Tuntematon', message.toString(), Date.now(), false);
     }
 });
 
-// --- Funktiot viestien lisäämiseen ---
-function addMessage(nickname, text, isOwn) {
+function addMessage(nickname, text, createdAt, isOwn) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message' + (isOwn ? ' own' : '');
-    const time = new Date().toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-    messageDiv.innerHTML = `<div class="message-bubble">${escapeHtml(text)}</div>
-                            <div class="message-meta">${escapeHtml(nickname)} • ${time}</div>`;
+    
+    const time = new Date(createdAt).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+
+    messageDiv.innerHTML = `
+        <div class="message-bubble">${escapeHtml(text)}</div>
+        <div class="message-meta">${escapeHtml(nickname)} • ${time}</div>
+    `;
     messagesDiv.appendChild(messageDiv);
 
     const allMessages = messagesDiv.querySelectorAll('.message');
-    if (allMessages.length > MAX_MESSAGES) { messagesDiv.removeChild(allMessages[0]); }
+    if (allMessages.length > MAX_MESSAGES) messagesDiv.removeChild(allMessages[0]);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
@@ -163,22 +119,13 @@ function addSystemMessage(text) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
 function sendMessage() {
     const text = messageInput.value.trim();
     const nickname = nicknameInput.value.trim() || 'Anonyymi';
     if (text && client.connected) {
-        const payload = JSON.stringify({
-            nickname,
-            text,
-            clientId: client.options.clientId,
-            timestamp: Date.now()
-        });
+        const payload = JSON.stringify({ nickname, text, clientId: client.options.clientId, timestamp: Date.now() });
         client.publish(TOPIC, payload);
         messageInput.value = '';
     }
@@ -189,3 +136,4 @@ messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMess
 </script>
 </body>
 </html>
+
